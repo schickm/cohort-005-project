@@ -249,6 +249,14 @@ export const refunds = sqliteTable(
       .$defaultFn(() => new Date().toISOString()),
     resolvedAt: text("resolved_at"),
     resolvedByUserId: integer("resolved_by_user_id").references(() => users.id),
+    // Shown to the learner. Set only when declined.
+    declineReason: text("decline_reason"),
+    // Approving takes the learner's enrollment away. This keeps what it held,
+    // so undoing the approval can put it back exactly as it was.
+    revokedEnrollment: text("revoked_enrollment", { mode: "json" }).$type<{
+      enrolledAt: string;
+      completedAt: string | null;
+    }>(),
   },
   (table) => [index("refunds_purchase_idx").on(table.purchaseId)]
 );

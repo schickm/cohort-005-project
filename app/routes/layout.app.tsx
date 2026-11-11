@@ -8,6 +8,10 @@ import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 import { eq, and, or, sql, desc } from "drizzle-orm";
 import { db } from "~/db";
 import {
+  canDecideRefundRequests,
+  countOpenRefundRequests,
+} from "~/lib/refund-decisions.server";
+import {
   users,
   courses,
   modules,
@@ -213,6 +217,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     countryTierInfo,
     countries: COUNTRIES,
     isTeamAdmin: currentUserId ? isTeamAdmin(currentUserId) : false,
+    openRefundRequestCount:
+      currentUser && canDecideRefundRequests(currentUser.role)
+        ? countOpenRefundRequests(db, {
+            id: currentUser.id,
+            role: currentUser.role,
+          })
+        : 0,
   };
 }
 
@@ -225,6 +236,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     countryTierInfo,
     countries,
     isTeamAdmin: userIsTeamAdmin,
+    openRefundRequestCount,
   } = loaderData;
 
   return (
@@ -233,6 +245,7 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
         currentUser={currentUser}
         recentCourses={recentCourses}
         isTeamAdmin={userIsTeamAdmin}
+        openRefundRequestCount={openRefundRequestCount}
       />
       <main className="flex-1 overflow-y-auto">
         <Outlet />

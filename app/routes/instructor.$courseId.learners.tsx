@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import type { Route } from "./+types/instructor.$courseId.students";
+import type { Route } from "./+types/instructor.$courseId.learners";
 import { getCurrentUserId } from "~/lib/session";
 import { UserRole } from "~/db/schema";
 import { Card, CardContent } from "~/components/ui/card";
@@ -28,7 +28,7 @@ function getCourseById(id: number) {
   return db.select().from(courses).where(eq(courses.id, id)).get();
 }
 
-function getCourseEnrolledStudents(courseId: number) {
+function getCourseEnrolledLearners(courseId: number) {
   return db
     .select({
       enrollmentId: enrollments.id,
@@ -138,10 +138,10 @@ function calculateProgress(
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  const title = loaderData?.course?.title ?? "Student Roster";
+  const title = loaderData?.course?.title ?? "Learner Roster";
   return [
-    { title: `Students: ${title} — Cadence` },
-    { name: "description", content: `Enrolled students for ${title}` },
+    { title: `Learners: ${title} — Cadence` },
+    { name: "description", content: `Enrolled learners for ${title}` },
   ];
 }
 
@@ -149,7 +149,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const currentUserId = await getCurrentUserId(request);
 
   if (!currentUserId) {
-    throw data("Select a user from the DevUI panel to view student roster.", {
+    throw data("Select a user from the DevUI panel to view learner roster.", {
       status: 401,
     });
   }
@@ -177,13 +177,13 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
 
   if (course.instructorId !== currentUserId && user.role !== UserRole.Admin) {
-    throw data("You can only view students for your own courses.", {
+    throw data("You can only view learners for your own courses.", {
       status: 403,
     });
   }
 
-  // Get all enrolled students
-  const enrolledStudents = getCourseEnrolledStudents(courseId);
+  // Get all enrolled learners
+  const enrolledLearners = getCourseEnrolledLearners(courseId);
 
   // Get all lessons with quizzes for this course
   const courseModules = db
@@ -222,9 +222,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }
   }
 
-  // Build student data with progress and quiz scores
-  const students = enrolledStudents.map((enrollment) => {
-    const studentUser = getUserById(enrollment.userId);
+  // Build learner data with progress and quiz scores
+  const learners = enrolledLearners.map((enrollment) => {
+    const learnerUser = getUserById(enrollment.userId);
     const progress = calculateProgress(enrollment.userId, courseId, false);
 
     // Get best quiz attempt for each quiz in this course
@@ -241,8 +241,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
     return {
       userId: enrollment.userId,
-      name: studentUser?.name ?? "Unknown",
-      email: studentUser?.email ?? "",
+      name: learnerUser?.name ?? "Unknown",
+      email: learnerUser?.email ?? "",
       enrolledAt: enrollment.enrolledAt,
       completedAt: enrollment.completedAt,
       progress,
@@ -250,7 +250,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     };
   });
 
-  return { course, students, quizCount: lessonQuizzes.length };
+  return { course, learners, quizCount: lessonQuizzes.length };
 }
 
 function progressBar(progress: number) {
@@ -289,10 +289,10 @@ function quizScoreBadge(score: number | null, passed: boolean | null) {
   );
 }
 
-export default function InstructorStudentRoster({
+export default function InstructorLearnerRoster({
   loaderData,
 }: Route.ComponentProps) {
-  const { course, students, quizCount } = loaderData;
+  const { course, learners, quizCount } = loaderData;
 
   return (
     <div className="mx-auto max-w-7xl p-6 lg:p-8">
@@ -306,7 +306,7 @@ export default function InstructorStudentRoster({
           {course.title}
         </Link>
         <span className="mx-2">/</span>
-        <span className="text-foreground">Students</span>
+        <span className="text-foreground">Learners</span>
       </nav>
 
       <Link
@@ -318,16 +318,16 @@ export default function InstructorStudentRoster({
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Student Roster</h1>
+        <h1 className="text-3xl font-bold">Learner Roster</h1>
         <p className="mt-1 text-muted-foreground">
-          Enrolled students for {course.title}
+          Enrolled learners for {course.title}
         </p>
       </div>
 
       <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <Users className="size-4" />
-          {students.length} {students.length === 1 ? "student" : "students"}{" "}
+          {learners.length} {learners.length === 1 ? "learner" : "learners"}{" "}
           enrolled
         </span>
         {quizCount > 0 && (
@@ -338,12 +338,12 @@ export default function InstructorStudentRoster({
         )}
       </div>
 
-      {students.length === 0 ? (
+      {learners.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
             <Users className="mx-auto mb-3 size-8 text-muted-foreground/50" />
             <p className="text-muted-foreground">
-              No students enrolled in this course yet.
+              No learners enrolled in this course yet.
             </p>
           </CardContent>
         </Card>
@@ -355,7 +355,7 @@ export default function InstructorStudentRoster({
                 <thead>
                   <tr className="border-b border-border bg-muted/50">
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Student
+                      Learner
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Enrolled
@@ -374,9 +374,9 @@ export default function InstructorStudentRoster({
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((student) => {
+                  {learners.map((learner) => {
                     const enrolledDate = new Date(
-                      student.enrolledAt
+                      learner.enrolledAt
                     ).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "short",
@@ -385,16 +385,16 @@ export default function InstructorStudentRoster({
 
                     return (
                       <tr
-                        key={student.userId}
+                        key={learner.userId}
                         className="border-b border-border last:border-0"
                       >
                         <td className="px-4 py-3">
                           <div>
                             <p className="text-sm font-medium">
-                              {student.name}
+                              {learner.name}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {student.email}
+                              {learner.email}
                             </p>
                           </div>
                         </td>
@@ -402,14 +402,14 @@ export default function InstructorStudentRoster({
                           {enrolledDate}
                         </td>
                         <td className="px-4 py-3">
-                          {progressBar(student.progress)}
+                          {progressBar(learner.progress)}
                         </td>
                         <td className="px-4 py-3">
-                          {student.completedAt ? (
+                          {learner.completedAt ? (
                             <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
                               Completed
                             </span>
-                          ) : student.progress > 0 ? (
+                          ) : learner.progress > 0 ? (
                             <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                               In Progress
                             </span>
@@ -422,7 +422,7 @@ export default function InstructorStudentRoster({
                         {quizCount > 0 && (
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-2">
-                              {student.quizScores.map((qs) => (
+                              {learner.quizScores.map((qs) => (
                                 <div
                                   key={qs.quizId}
                                   className="flex items-center gap-1"
@@ -450,7 +450,7 @@ export default function InstructorStudentRoster({
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let title = "Something went wrong";
   let message =
-    "An unexpected error occurred while loading the student roster.";
+    "An unexpected error occurred while loading the learner roster.";
 
   if (isRouteErrorResponse(error)) {
     if (error.status === 404) {

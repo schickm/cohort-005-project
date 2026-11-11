@@ -366,7 +366,7 @@ function getEnrollmentCountForCourse(courseId: number) {
   return result?.count ?? 0;
 }
 
-function getCourseEnrolledStudents(courseId: number) {
+function getCourseEnrolledLearners(courseId: number) {
   return db
     .select({
       enrollmentId: enrollments.id,
@@ -588,8 +588,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const lessonCount = getLessonCountForCourse(courseId);
   const enrollmentCount = getEnrollmentCountForCourse(courseId);
 
-  // Student roster data
-  const enrolledStudents = getCourseEnrolledStudents(courseId);
+  // Learner roster data
+  const enrolledLearners = getCourseEnrolledLearners(courseId);
 
   // Gather all lessons from the course modules and find which have quizzes
   const allCourseLessons = course.modules.flatMap((mod) => mod.lessons);
@@ -611,8 +611,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     }
   }
 
-  const students = enrolledStudents.map((enrollment) => {
-    const studentUser = getUserById(enrollment.userId);
+  const learners = enrolledLearners.map((enrollment) => {
+    const learnerUser = getUserById(enrollment.userId);
     const progress = calculateProgress(enrollment.userId, courseId, false);
 
     const quizScores = lessonQuizzes.map((lq) => {
@@ -628,8 +628,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
     return {
       userId: enrollment.userId,
-      name: studentUser?.name ?? "Unknown",
-      email: studentUser?.email ?? "",
+      name: learnerUser?.name ?? "Unknown",
+      email: learnerUser?.email ?? "",
       enrolledAt: enrollment.enrolledAt,
       completedAt: enrollment.completedAt,
       progress,
@@ -639,7 +639,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   const quizCount = lessonQuizzes.length;
 
-  return { course, lessonCount, enrollmentCount, students, quizCount };
+  return { course, lessonCount, enrollmentCount, learners, quizCount };
 }
 
 export async function action({ params, request }: Route.ActionArgs) {
@@ -1492,7 +1492,7 @@ function statusBadgeColor(status: string) {
 export default function InstructorCourseEditor({
   loaderData,
 }: Route.ComponentProps) {
-  const { course, lessonCount, enrollmentCount, students, quizCount } =
+  const { course, lessonCount, enrollmentCount, learners, quizCount } =
     loaderData;
   const statusFetcher = useFetcher();
   const reorderFetcher = useFetcher();
@@ -1687,7 +1687,7 @@ export default function InstructorCourseEditor({
           </span>
           <span className="flex items-center gap-1.5">
             <Users className="size-4" />
-            {enrollmentCount} {enrollmentCount === 1 ? "student" : "students"}
+            {enrollmentCount} {enrollmentCount === 1 ? "learner" : "learners"}
           </span>
           <span className="text-xs text-muted-foreground">
             Slug: /courses/{course.slug}
@@ -1710,9 +1710,9 @@ export default function InstructorCourseEditor({
             <FileText className="size-4" />
             Sales Copy
           </TabsTrigger>
-          <TabsTrigger value="students">
+          <TabsTrigger value="learners">
             <Users className="size-4" />
-            Students
+            Learners
           </TabsTrigger>
         </TabsList>
 
@@ -1971,7 +1971,7 @@ export default function InstructorCourseEditor({
 
                   <div
                     className="flex items-center gap-2"
-                    title="Purchasing Power Parity: applies location-based discounts for students in lower-income countries"
+                    title="Purchasing Power Parity: applies location-based discounts for learners in lower-income countries"
                   >
                     <Globe className="size-4 text-muted-foreground" />
                     <span className="text-sm font-medium">PPP:</span>
@@ -2068,12 +2068,12 @@ export default function InstructorCourseEditor({
           </Card>
         </TabsContent>
 
-        {/* Students Tab */}
-        <TabsContent value="students" className="mt-6">
+        {/* Learners Tab */}
+        <TabsContent value="learners" className="mt-6">
           <div className="mb-4 flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
               <Users className="size-4" />
-              {students.length} {students.length === 1 ? "student" : "students"}{" "}
+              {learners.length} {learners.length === 1 ? "learner" : "learners"}{" "}
               enrolled
             </span>
             {quizCount > 0 && (
@@ -2084,12 +2084,12 @@ export default function InstructorCourseEditor({
             )}
           </div>
 
-          {students.length === 0 ? (
+          {learners.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center">
                 <Users className="mx-auto mb-3 size-8 text-muted-foreground/50" />
                 <p className="text-muted-foreground">
-                  No students enrolled in this course yet.
+                  No learners enrolled in this course yet.
                 </p>
               </CardContent>
             </Card>
@@ -2101,7 +2101,7 @@ export default function InstructorCourseEditor({
                     <thead>
                       <tr className="border-b border-border bg-muted/50">
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                          Student
+                          Learner
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                           Enrolled
@@ -2120,9 +2120,9 @@ export default function InstructorCourseEditor({
                       </tr>
                     </thead>
                     <tbody>
-                      {students.map((student) => {
+                      {learners.map((learner) => {
                         const enrolledDate = new Date(
-                          student.enrolledAt
+                          learner.enrolledAt
                         ).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "short",
@@ -2131,16 +2131,16 @@ export default function InstructorCourseEditor({
 
                         return (
                           <tr
-                            key={student.userId}
+                            key={learner.userId}
                             className="border-b border-border last:border-0"
                           >
                             <td className="px-4 py-3">
                               <div>
                                 <p className="text-sm font-medium">
-                                  {student.name}
+                                  {learner.name}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {student.email}
+                                  {learner.email}
                                 </p>
                               </div>
                             </td>
@@ -2152,20 +2152,20 @@ export default function InstructorCourseEditor({
                                 <div className="h-2 w-24 rounded-full bg-muted">
                                   <div
                                     className="h-2 rounded-full bg-primary transition-all"
-                                    style={{ width: `${student.progress}%` }}
+                                    style={{ width: `${learner.progress}%` }}
                                   />
                                 </div>
                                 <span className="text-sm font-medium">
-                                  {student.progress}%
+                                  {learner.progress}%
                                 </span>
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              {student.completedAt ? (
+                              {learner.completedAt ? (
                                 <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
                                   Completed
                                 </span>
-                              ) : student.progress > 0 ? (
+                              ) : learner.progress > 0 ? (
                                 <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                                   In Progress
                                 </span>
@@ -2178,7 +2178,7 @@ export default function InstructorCourseEditor({
                             {quizCount > 0 && (
                               <td className="px-4 py-3">
                                 <div className="flex flex-wrap gap-2">
-                                  {student.quizScores.map((qs) => (
+                                  {learner.quizScores.map((qs) => (
                                     <div
                                       key={qs.quizId}
                                       className="flex items-center gap-1"

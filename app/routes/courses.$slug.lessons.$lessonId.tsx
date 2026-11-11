@@ -1078,7 +1078,7 @@ export default function LessonViewer({ loaderData }: Route.ComponentProps) {
           <p className="mb-6 text-sm text-muted-foreground">
             PPP-discounted courses can only be accessed from the country where
             the purchase was made. This helps keep courses affordable for
-            students in lower-income regions.
+            learners in lower-income regions.
           </p>
           <div className="flex items-center justify-center gap-3">
             <Link to={`/courses/${course.slug}`}>

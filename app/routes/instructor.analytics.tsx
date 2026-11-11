@@ -117,7 +117,7 @@ type RevenueSeries = {
   points: RevenuePoint[];
 };
 
-type StudentRevenue = {
+type LearnerRevenue = {
   userId: number;
   name: string;
   revenueCents: number;
@@ -172,7 +172,7 @@ type QuizPassRate = {
   moduleTitle: string;
   lessonTitle: string;
   passingScorePercent: number;
-  studentCount: number;
+  learnerCount: number;
   passedCount: number;
   passRatePercent: number | null;
   averageBestScorePercent: number | null;
@@ -232,11 +232,11 @@ function ownedBy(instructorId: number | null) {
     : eq(courses.instructorId, instructorId);
 }
 
-function getStudentRevenue(
+function getLearnerRevenue(
   instructorId: number | null,
   range: AnalyticsRange
-): StudentRevenue[] {
-  const students = db
+): LearnerRevenue[] {
+  const learners = db
     .selectDistinct({ userId: users.id, name: users.name })
     .from(enrollments)
     .innerJoin(courses, eq(enrollments.courseId, courses.id))
@@ -245,9 +245,9 @@ function getStudentRevenue(
     .orderBy(users.name)
     .all();
 
-  if (students.length === 0) return [];
+  if (learners.length === 0) return [];
 
-  const studentIds = students.map((student) => student.userId);
+  const learnerIds = learners.map((learner) => learner.userId);
 
   // Correlated: did this purchase mint seats for other people?
   const mintedSeats = db
@@ -261,7 +261,7 @@ function getStudentRevenue(
     .innerJoin(courses, eq(purchases.courseId, courses.id))
     .where(
       and(
-        inArray(purchases.userId, studentIds),
+        inArray(purchases.userId, learnerIds),
         notExists(mintedSeats),
         ownedBy(instructorId)
       )
@@ -287,7 +287,7 @@ function getStudentRevenue(
     .innerJoin(courses, eq(purchases.courseId, courses.id))
     .innerJoin(seatCounts, eq(seatCounts.purchaseId, coupons.purchaseId))
     .where(
-      and(inArray(coupons.redeemedByUserId, studentIds), ownedBy(instructorId))
+      and(inArray(coupons.redeemedByUserId, learnerIds), ownedBy(instructorId))
     )
     .groupBy(coupons.redeemedByUserId)
     .all();
@@ -301,9 +301,9 @@ function getStudentRevenue(
   for (const row of direct) credit(row.userId, row.paid);
   for (const row of viaSeat) credit(row.userId, row.paid);
 
-  return students.map((student) => ({
-    ...student,
-    revenueCents: Math.round(paidByUser.get(student.userId) ?? 0),
+  return learners.map((learner) => ({
+    ...learner,
+    revenueCents: Math.round(paidByUser.get(learner.userId) ?? 0),
   }));
 }
 
@@ -493,8 +493,8 @@ function getCourseProgressSummary(courseId: number): CourseProgressSummary {
   const totalLessons = totals?.totalLessons ?? 0;
 
   // One grouped row per enrollee, including the ones who never started: a
-  // student who bought and vanished is the finding, so a left join keeps them.
-  const perStudent = db
+  // learner who bought and vanished is the finding, so a left join keeps them.
+  const perLearner = db
     .select({
       userId: enrollments.userId,
       completed: countDistinct(lessonProgress.lessonId),
@@ -512,31 +512,31 @@ function getCourseProgressSummary(courseId: number): CourseProgressSummary {
     .groupBy(enrollments.userId)
     .all();
 
-  if (perStudent.length === 0 || totalLessons === 0) {
+  if (perLearner.length === 0 || totalLessons === 0) {
     return {
-      enrolledCount: perStudent.length,
+      enrolledCount: perLearner.length,
       totalLessons,
       averageProgressPercent: null,
       finishedCount: 0,
     };
   }
 
-  const totalPercent = perStudent.reduce(
-    (running, student) => running + (student.completed / totalLessons) * 100,
+  const totalPercent = perLearner.reduce(
+    (running, learner) => running + (learner.completed / totalLessons) * 100,
     0
   );
 
   return {
-    enrolledCount: perStudent.length,
+    enrolledCount: perLearner.length,
     totalLessons,
-    averageProgressPercent: Math.round(totalPercent / perStudent.length),
-    finishedCount: perStudent.filter(
-      (student) => student.completed >= totalLessons
+    averageProgressPercent: Math.round(totalPercent / perLearner.length),
+    finishedCount: perLearner.filter(
+      (learner) => learner.completed >= totalLessons
     ).length,
   };
 }
 
-/** A lesson a student has opened counts as reached; one they haven't doesn't. */
+/** A lesson a learner has opened counts as reached; one they haven't doesn't. */
 const REACHED_STATUSES = [
   LessonProgressStatus.InProgress,
   LessonProgressStatus.Completed,
@@ -670,7 +670,7 @@ function getCourseQuizPassRates(
 
   const quizIds = quizRows.map((quiz) => quiz.quizId);
 
-  // One row per student per quiz, holding the best they managed.
+  // One row per learner per quiz, holding the best they managed.
   //
   // `passed` and `score` are selected bare beside `max(score)`: SQLite answers
   // those from the very row the maximum came from, which is how the best
@@ -694,7 +694,7 @@ function getCourseQuizPassRates(
   const stats = db
     .select({
       quizId: bestAttempts.quizId,
-      studentCount: count(),
+      learnerCount: count(),
       passedCount: sql<number>`sum(${bestAttempts.passed})`,
       averageBestScore: sql<number>`avg(${bestAttempts.bestScore})`,
     })
@@ -706,7 +706,7 @@ function getCourseQuizPassRates(
 
   return quizRows.map((quiz) => {
     const row = statsByQuiz.get(quiz.quizId);
-    const studentCount = row?.studentCount ?? 0;
+    const learnerCount = row?.learnerCount ?? 0;
     const passedCount = Number(row?.passedCount ?? 0);
 
     return {
@@ -715,14 +715,14 @@ function getCourseQuizPassRates(
       moduleTitle: quiz.moduleTitle,
       lessonTitle: quiz.lessonTitle,
       passingScorePercent: Math.round(quiz.passingScore * 100),
-      studentCount,
+      learnerCount,
       passedCount,
       passRatePercent:
-        studentCount === 0
+        learnerCount === 0
           ? null
-          : Math.round((passedCount / studentCount) * 100),
+          : Math.round((passedCount / learnerCount) * 100),
       averageBestScorePercent:
-        studentCount === 0
+        learnerCount === 0
           ? null
           : Math.round(Number(row?.averageBestScore ?? 0) * 100),
     };
@@ -936,19 +936,19 @@ export async function loader({ request, url }: Route.LoaderArgs) {
     .where(purchaseScope(instructorId, range))
     .get();
 
-  const students = getStudentRevenue(instructorId, range);
-  const attributedRevenue = students.reduce(
-    (total, student) => total + student.revenueCents,
+  const learners = getLearnerRevenue(instructorId, range);
+  const attributedRevenue = learners.reduce(
+    (total, learner) => total + learner.revenueCents,
     0
   );
 
   const audience = {
     buyerCount: buyerCountRow?.buyerCount ?? 0,
-    studentCount: students.length,
-    revenuePerStudentCents:
-      students.length === 0
+    learnerCount: learners.length,
+    revenuePerLearnerCents:
+      learners.length === 0
         ? null
-        : Math.round(attributedRevenue / students.length),
+        : Math.round(attributedRevenue / learners.length),
   };
 
   // Everyone who owns at least one course, for the admin's instructor picker.
@@ -1241,9 +1241,9 @@ function CourseProgress({ progress }: { progress: CourseProgressSummary }) {
             />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Lessons completed per enrolled student, across{" "}
+            Lessons completed per enrolled learner, across{" "}
             {progress.enrolledCount}{" "}
-            {progress.enrolledCount === 1 ? "student" : "students"} and{" "}
+            {progress.enrolledCount === 1 ? "learner" : "learners"} and{" "}
             {progress.totalLessons}{" "}
             {progress.totalLessons === 1 ? "lesson" : "lessons"}.
           </p>
@@ -1253,7 +1253,7 @@ function CourseProgress({ progress }: { progress: CourseProgressSummary }) {
       <Card>
         <CardContent className="p-6">
           <div className="text-sm font-medium text-muted-foreground">
-            Students finished <span className="font-normal">· all time</span>
+            Learners finished <span className="font-normal">· all time</span>
           </div>
           <div className="mt-2 text-3xl font-bold">
             {progress.finishedCount}
@@ -1262,7 +1262,7 @@ function CourseProgress({ progress }: { progress: CourseProgressSummary }) {
               defensible completion rates exist, they disagree, and naming one
               of them here would be wrong for whoever is reading. */}
           <p className="mt-2 text-xs text-muted-foreground">
-            Students who have completed every lesson, of{" "}
+            Learners who have completed every lesson, of{" "}
             {progress.enrolledCount} enrolled.
           </p>
         </CardContent>
@@ -1362,7 +1362,7 @@ function QuizPassRates({ quizzes }: { quizzes: QuizPassRate[] }) {
   if (quizzes.length === 0) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
-        This course has no quizzes yet. Add one to a lesson to see how students
+        This course has no quizzes yet. Add one to a lesson to see how learners
         do on it.
       </p>
     );
@@ -1373,7 +1373,7 @@ function QuizPassRates({ quizzes }: { quizzes: QuizPassRate[] }) {
       <thead>
         <tr className="border-b text-left text-muted-foreground">
           <th className="pb-2 font-medium">Quiz</th>
-          <th className="pb-2 text-right font-medium">Students</th>
+          <th className="pb-2 text-right font-medium">Learners</th>
           <th className="pb-2 text-right font-medium">Passed</th>
           <th className="pb-2 text-right font-medium">Pass rate</th>
           <th className="pb-2 text-right font-medium">Average score</th>
@@ -1401,7 +1401,7 @@ function QuizPassRates({ quizzes }: { quizzes: QuizPassRate[] }) {
             ) : (
               <>
                 <td className="py-3 text-right tabular-nums">
-                  {quiz.studentCount}
+                  {quiz.learnerCount}
                 </td>
                 <td className="py-3 text-right tabular-nums">
                   {quiz.passedCount}
@@ -1635,7 +1635,7 @@ export default function InstructorAnalytics({
               <MoneyCard
                 label="Gross revenue"
                 amountCents={summary.grossCents}
-                hint={`What students paid, across ${summary.purchaseCount} ${
+                hint={`What learners paid, across ${summary.purchaseCount} ${
                   summary.purchaseCount === 1 ? "purchase" : "purchases"
                 }.`}
               />
@@ -1660,13 +1660,13 @@ export default function InstructorAnalytics({
                 emptyHint="Nobody has bought in this period."
               />
               <StatCard
-                label="Enrolled students"
-                value={audience.studentCount}
+                label="Enrolled learners"
+                value={audience.learnerCount}
                 hint={`Learners with access, seats included.${
-                  audience.revenuePerStudentCents === null
+                  audience.revenuePerLearnerCents === null
                     ? ""
                     : ` ${formatMoney(
-                        audience.revenuePerStudentCents
+                        audience.revenuePerLearnerCents
                       )} of revenue each.`
                 }`}
                 emptyHint="Nobody has enrolled in this period."
@@ -1677,7 +1677,7 @@ export default function InstructorAnalytics({
                 hint={
                   questions.older > 0
                     ? `Plus ${questions.older} from before this period.`
-                    : "Students waiting on a reply."
+                    : "Learners waiting on a reply."
                 }
                 // Quiet this period is only good news if the backlog is empty
                 // too, so the older count keeps its place in the empty copy.
@@ -1769,7 +1769,7 @@ export default function InstructorAnalytics({
                   <CardContent className="py-12 text-center">
                     <p className="font-medium">Nobody is enrolled yet</p>
                     <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-                      Progress and drop-off appear as soon as the first student
+                      Progress and drop-off appear as soon as the first learner
                       joins {selectedCourse?.title}.
                     </p>
                   </CardContent>
@@ -1783,9 +1783,9 @@ export default function InstructorAnalytics({
                       <h2 className="text-lg font-semibold">Drop-off</h2>
                       <p className="mb-4 text-sm text-muted-foreground">
                         How many of the {funnel.enrolledCount} enrolled{" "}
-                        {funnel.enrolledCount === 1 ? "student" : "students"}{" "}
+                        {funnel.enrolledCount === 1 ? "learner" : "learners"}{" "}
                         got at least as far as each lesson, all time. The bars
-                        only descend, so the biggest gap is where students quit
+                        only descend, so the biggest gap is where learners quit
                         — the figure beside a lesson counts the ones who never
                         reached it, having stopped on the lesson above.
                       </p>
@@ -1801,7 +1801,7 @@ export default function InstructorAnalytics({
                   <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
                     {courseOptions.length === 0
                       ? "There are no courses here to look into yet."
-                      : "Choose one of your courses above to see how far students get and where they give up."}
+                      : "Choose one of your courses above to see how far learners get and where they give up."}
                   </p>
                 </CardContent>
               </Card>
@@ -1817,8 +1817,8 @@ export default function InstructorAnalytics({
                 <CardContent className="p-6">
                   <h2 className="text-lg font-semibold">Quiz results</h2>
                   <p className="mb-4 text-sm text-muted-foreground">
-                    One result per student per quiz, counting their best attempt
-                    — the same basis as the student roster. Retakes are not
+                    One result per learner per quiz, counting their best attempt
+                    — the same basis as the learner roster. Retakes are not
                     counted separately, so a quiz people get on the second go
                     still reads as passed. Attempts made in this period only.
                   </p>

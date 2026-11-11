@@ -37,8 +37,8 @@ export default [
       "routes/instructor.$courseId.modules.$moduleId.tsx"
     ),
     route(
-      "instructor/:courseId/students",
-      "routes/instructor.$courseId.students.tsx"
+      "instructor/:courseId/learners",
+      "routes/instructor.$courseId.learners.tsx"
     ),
     route("admin/users", "routes/admin.users.tsx"),
     route("admin/courses", "routes/admin.courses.tsx"),

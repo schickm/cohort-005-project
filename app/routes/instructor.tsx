@@ -258,7 +258,7 @@ export default function InstructorDashboard({
                     <Users className="size-4" />
                     <span>
                       {course.enrollmentCount}{" "}
-                      {course.enrollmentCount === 1 ? "student" : "students"}
+                      {course.enrollmentCount === 1 ? "learner" : "learners"}
                     </span>
                   </div>
                 </div>

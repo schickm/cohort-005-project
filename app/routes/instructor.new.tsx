@@ -233,7 +233,7 @@ export default function InstructorNewCourse({
               <Textarea
                 id="description"
                 name="description"
-                placeholder="Describe what students will learn in this course..."
+                placeholder="Describe what learners will take away from this course..."
                 rows={4}
                 aria-invalid={errors?.description ? true : undefined}
               />

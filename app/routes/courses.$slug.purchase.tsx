@@ -466,7 +466,7 @@ export default function PurchaseConfirmation({
             </span>
             <span className="flex items-center gap-2">
               <Users className="size-4" />
-              {enrollmentCount} {enrollmentCount === 1 ? "student" : "students"}{" "}
+              {enrollmentCount} {enrollmentCount === 1 ? "learner" : "learners"}{" "}
               enrolled
             </span>
           </div>

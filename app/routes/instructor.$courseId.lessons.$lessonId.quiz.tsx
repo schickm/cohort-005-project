@@ -1122,7 +1122,7 @@ export default function QuizBuilderWizard({
             onClick={() => {
               if (
                 confirm(
-                  "Are you sure you want to delete this quiz? All student attempts will be lost."
+                  "Are you sure you want to delete this quiz? All learner attempts will be lost."
                 )
               ) {
                 fetcher.submit({ intent: "delete-quiz" }, { method: "post" });

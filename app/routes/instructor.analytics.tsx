@@ -17,6 +17,7 @@ import {
   sql,
   sum,
 } from "drizzle-orm";
+import { ratingByCurrentLearner } from "~/lib/ratings.server";
 import { alias, type SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { db } from "~/db";
 import {
@@ -392,7 +393,12 @@ function getRatingSummary(
     })
     .from(courseRatings)
     .innerJoin(courses, eq(courseRatings.courseId, courses.id))
-    .where(scopeOn(courseRatings.createdAt, instructorId, range))
+    .where(
+      and(
+        scopeOn(courseRatings.createdAt, instructorId, range),
+        ratingByCurrentLearner
+      )
+    )
     .get();
 
   if (!row || row.count === 0 || row.average === null) {

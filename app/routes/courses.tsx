@@ -14,6 +14,7 @@ import {
   LessonProgressStatus,
 } from "~/db/schema";
 import { eq, like, and, or, sql, inArray } from "drizzle-orm";
+import { ratingByCurrentLearner } from "~/lib/ratings.server";
 import { Card, CardContent, CardFooter, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -251,7 +252,9 @@ function getCourseRatingSummaries(
       count: sql<number>`count(*)`,
     })
     .from(courseRatings)
-    .where(inArray(courseRatings.courseId, courseIds))
+    .where(
+      and(inArray(courseRatings.courseId, courseIds), ratingByCurrentLearner)
+    )
     .groupBy(courseRatings.courseId)
     .all();
 

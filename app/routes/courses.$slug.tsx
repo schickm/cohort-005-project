@@ -22,6 +22,7 @@ import {
   RefundStatus,
 } from "~/db/schema";
 import { eq, and, or, sql, inArray, isNotNull } from "drizzle-orm";
+import { ratingByCurrentLearner } from "~/lib/ratings.server";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
@@ -318,7 +319,7 @@ function getCourseRatingSummary(courseId: number): CourseRatingSummary {
       count: sql<number>`count(*)`,
     })
     .from(courseRatings)
-    .where(eq(courseRatings.courseId, courseId))
+    .where(and(eq(courseRatings.courseId, courseId), ratingByCurrentLearner))
     .get();
 
   if (!result || result.count === 0 || result.average === null) {

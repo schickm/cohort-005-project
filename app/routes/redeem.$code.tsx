@@ -13,6 +13,10 @@ import { data } from "react-router";
 import { db } from "~/db";
 import { purchases, coupons, courses, enrollments } from "~/db/schema";
 import { eq, and } from "drizzle-orm";
+import { isPurchaseRefunded } from "~/lib/refund-decisions.server";
+
+const REFUNDED_LICENCE_MESSAGE =
+  "This team licence has been refunded, so its unclaimed seats no longer work.";
 
 function getCourseById(id: number) {
   return db.select().from(courses).where(eq(courses.id, id)).get();
@@ -50,6 +54,10 @@ function redeemCoupon(
 
   if (coupon.redeemedByUserId !== null) {
     return { ok: false, error: "Coupon has already been redeemed" };
+  }
+
+  if (isPurchaseRefunded(db, coupon.purchaseId)) {
+    return { ok: false, error: REFUNDED_LICENCE_MESSAGE };
   }
 
   const existingEnrollment = db
@@ -135,6 +143,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   }
 
   const alreadyRedeemed = coupon.redeemedByUserId !== null;
+
+  if (!alreadyRedeemed && isPurchaseRefunded(db, coupon.purchaseId)) {
+    throw data(REFUNDED_LICENCE_MESSAGE, { status: 410 });
+  }
   const alreadyEnrolled = isUserEnrolled(currentUserId, coupon.courseId);
 
   // Check country mismatch upfront so we can show a clear message

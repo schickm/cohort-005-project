@@ -17,6 +17,7 @@ import {
 import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { parseFormData, parseParams } from "~/lib/validation";
 import { formatPrice } from "~/lib/utils";
+import { isPurchaseRefunded } from "~/lib/refund-decisions.server";
 
 const REFUND_WINDOW_DAYS = 14;
 const MAX_WATCHED_HOURS = 2;
@@ -138,6 +139,10 @@ export async function action({ params, request }: Route.ActionArgs) {
 
   if (!purchase) {
     throw data("You have not bought this course.", { status: 403 });
+  }
+
+  if (isPurchaseRefunded(db, purchase.id)) {
+    throw data("This purchase has already been refunded.", { status: 409 });
   }
 
   if (getOpenRefundRequest(purchase.id)) {

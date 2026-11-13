@@ -1,4 +1,17 @@
-import { Outlet } from "react-router";
+import { Outlet, useSearchParams } from "react-router";
+import { useEffect, useState } from "react";
+import { getFeedConfig } from "~/lib/knock.prototype.server";
+import {
+  useKnockFeed,
+  VARIANTS,
+  type VariantKey,
+  VariantABell,
+  VariantBNavItem,
+  VariantBDrawer,
+  VariantCNavItem,
+  VariantCPanel,
+  PrototypeSwitcher,
+} from "~/components/notification-feed.prototype";
 import type { Route } from "./+types/layout.app";
 import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
@@ -185,7 +198,11 @@ export async function loader({ request }: Route.LoaderArgs) {
           course.courseId
         );
         const totalLessons = getTotalLessonCount(course.courseId);
-        const progress = calculateProgress(currentUserId, course.courseId, false);
+        const progress = calculateProgress(
+          currentUserId,
+          course.courseId,
+          false
+        );
         return {
           courseId: course.courseId,
           title: course.courseTitle,
@@ -213,6 +230,8 @@ export async function loader({ request }: Route.LoaderArgs) {
     countryTierInfo,
     countries: COUNTRIES,
     isTeamAdmin: currentUserId ? isTeamAdmin(currentUserId) : false,
+    // PROTOTYPE (issue 17)
+    feedConfig: currentUserId ? getFeedConfig(currentUserId) : null,
   };
 }
 
@@ -225,7 +244,34 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     countryTierInfo,
     countries,
     isTeamAdmin: userIsTeamAdmin,
+    feedConfig,
   } = loaderData;
+
+  // PROTOTYPE (issue 17): Notification Feed variants, ?variant= persisted to localStorage
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [variant, setVariantState] = useState<VariantKey>("A");
+  const [panelOpen, setPanelOpen] = useState(false);
+  useEffect(() => {
+    const fromUrl = searchParams.get("variant");
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem("proto-notif-variant");
+    } catch {}
+    const v = VARIANTS.find((x) => x.key === (fromUrl ?? stored));
+    if (v) setVariantState(v.key);
+  }, [searchParams]);
+  function setVariant(v: VariantKey) {
+    setVariantState(v);
+    setPanelOpen(false);
+    try {
+      localStorage.setItem("proto-notif-variant", v);
+    } catch {}
+    const next = new URLSearchParams(searchParams);
+    next.set("variant", v);
+    setSearchParams(next, { replace: true, preventScrollReset: true });
+  }
+  const feed = useKnockFeed(feedConfig);
+  const hasFeed = !!currentUser;
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -233,7 +279,32 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
         currentUser={currentUser}
         recentCourses={recentCourses}
         isTeamAdmin={userIsTeamAdmin}
+        headerSlot={
+          hasFeed && variant === "A" ? <VariantABell feed={feed} /> : undefined
+        }
+        navSlot={
+          hasFeed && variant === "B" ? (
+            <VariantBNavItem feed={feed} onOpen={() => setPanelOpen(true)} />
+          ) : hasFeed && variant === "C" ? (
+            <VariantCNavItem feed={feed} onOpen={() => setPanelOpen(true)} />
+          ) : undefined
+        }
+        takeover={
+          hasFeed && variant === "C" && panelOpen ? (
+            <VariantCPanel feed={feed} onClose={() => setPanelOpen(false)} />
+          ) : undefined
+        }
       />
+      {hasFeed && variant === "B" && panelOpen && (
+        <VariantBDrawer feed={feed} onClose={() => setPanelOpen(false)} />
+      )}
+      {hasFeed && (
+        <PrototypeSwitcher
+          current={variant}
+          onChange={setVariant}
+          feed={feed}
+        />
+      )}
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>

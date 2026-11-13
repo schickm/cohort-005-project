@@ -41,6 +41,10 @@ interface SidebarProps {
   currentUser: CurrentUser | null;
   recentCourses?: RecentCourse[];
   isTeamAdmin?: boolean;
+  // PROTOTYPE (issue 17): Notification Feed variant slots
+  headerSlot?: React.ReactNode;
+  navSlot?: React.ReactNode;
+  takeover?: React.ReactNode;
 }
 
 interface NavItem {
@@ -117,6 +121,9 @@ export function Sidebar({
   currentUser,
   recentCourses = [],
   isTeamAdmin = false,
+  headerSlot,
+  navSlot,
+  takeover,
 }: SidebarProps) {
   const currentUserRole = currentUser?.role ?? null;
   const [isDark, setIsDark] = useState(false);
@@ -135,88 +142,101 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex h-screen w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
+    <aside
+      className={cn(
+        "flex h-screen shrink-0 flex-col transition-[width]",
+        takeover ? "w-80" : "w-56",
+        " border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+      )}
+    >
+      <div className="flex h-14 items-center justify-between border-b border-sidebar-border px-4">
         <NavLink to="/" className="text-lg font-bold tracking-tight">
           Cadence
         </NavLink>
+        {headerSlot}
       </div>
 
-      <nav className="flex-1 space-y-1 p-3">
-        {navItems
-          .filter((item) => isVisible(item, currentUserRole))
-          .map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )
-              }
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
-        {isTeamAdmin && (
-          <NavLink
-            to="/team"
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )
-            }
-          >
-            <UsersRound className="size-4" />
-            Team
-          </NavLink>
-        )}
-      </nav>
-
-      {recentCourses.length > 0 && (
-        <div className="border-t border-sidebar-border p-3">
-          <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-            Recent Courses
-          </div>
-          <div className="space-y-1">
-            {recentCourses.map((course) => (
+      {takeover}
+      {!takeover && (
+        <>
+          <nav className="flex-1 space-y-1 p-3">
+            {navItems
+              .filter((item) => isVisible(item, currentUserRole))
+              .map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    )
+                  }
+                >
+                  {item.icon}
+                  {item.label}
+                </NavLink>
+              ))}
+            {isTeamAdmin && (
               <NavLink
-                key={course.courseId}
-                to={`/courses/${course.slug}`}
+                to="/team"
                 className={({ isActive }) =>
                   cn(
-                    "block rounded-md px-3 py-2 transition-colors",
+                    "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
                       : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )
                 }
               >
-                <div className="truncate text-sm font-medium">
-                  {course.title}
-                </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <div className="h-1.5 flex-1 rounded-full bg-sidebar-accent">
-                    <div
-                      className="h-1.5 rounded-full bg-primary"
-                      style={{ width: `${course.progress}%` }}
-                    />
-                  </div>
-                  <span className="shrink-0 text-xs text-sidebar-foreground/50">
-                    {course.progress}%
-                  </span>
-                </div>
+                <UsersRound className="size-4" />
+                Team
               </NavLink>
-            ))}
-          </div>
-        </div>
+            )}
+            {navSlot}
+          </nav>
+
+          {recentCourses.length > 0 && (
+            <div className="border-t border-sidebar-border p-3">
+              <div className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+                Recent Courses
+              </div>
+              <div className="space-y-1">
+                {recentCourses.map((course) => (
+                  <NavLink
+                    key={course.courseId}
+                    to={`/courses/${course.slug}`}
+                    className={({ isActive }) =>
+                      cn(
+                        "block rounded-md px-3 py-2 transition-colors",
+                        isActive
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )
+                    }
+                  >
+                    <div className="truncate text-sm font-medium">
+                      {course.title}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 rounded-full bg-sidebar-accent">
+                        <div
+                          className="h-1.5 rounded-full bg-primary"
+                          style={{ width: `${course.progress}%` }}
+                        />
+                      </div>
+                      <span className="shrink-0 text-xs text-sidebar-foreground/50">
+                        {course.progress}%
+                      </span>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       <div className="border-t border-sidebar-border p-3 space-y-1">

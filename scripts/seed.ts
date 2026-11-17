@@ -72,6 +72,8 @@ async function seed() {
 
   // Drop and recreate tables for a clean seed
   sqlite.exec(`
+    DROP TABLE IF EXISTS bookmarks;
+    DROP TABLE IF EXISTS notes;
     DROP TABLE IF EXISTS comments;
     DROP TABLE IF EXISTS course_ratings;
     DROP TABLE IF EXISTS video_watch_events;
@@ -2229,6 +2231,37 @@ This course is still in draft while the cluster examples are rewritten against t
   addWatchSession(students[3].id, course2LessonIds[0], 0, 300, 600, 22 * 24);
   addWatchSession(students[3].id, course2LessonIds[0], 300, 360, 600, 21 * 24);
 
+  // ─── Bookmarks and Notes ───
+  // Private to each Student: only they see these, on the Lesson page and /saved.
+
+  // Emma flagged two lessons to revisit and wrote a Note on one of them.
+  db.insert(schema.bookmarks)
+    .values([
+      { userId: students[0].id, lessonId: course1LessonIds[4], createdAt: daysAgo(40) },
+      { userId: students[0].id, lessonId: course2LessonIds[2], createdAt: daysAgo(30) },
+    ])
+    .run();
+  db.insert(schema.notes)
+    .values({
+      userId: students[0].id,
+      lessonId: course1LessonIds[4],
+      body: "Rewatch the middle section.\nTry the exercise again without the hints.",
+      createdAt: daysAgo(40),
+      updatedAt: daysAgo(38),
+    })
+    .run();
+
+  // Olivia keeps a Note on the lesson she is stuck on.
+  db.insert(schema.notes)
+    .values({
+      userId: students[2].id,
+      lessonId: course1LessonIds[3],
+      body: "Still not sure why the second example works. Ask in the discussion?",
+      createdAt: daysAgo(29),
+      updatedAt: daysAgo(29),
+    })
+    .run();
+
   // ─── Purchases ───
   // Individual purchases for enrolled students
 
@@ -2847,6 +2880,9 @@ This course is still in draft while the cluster examples are rewritten against t
   console.log(`  Enrollments: ${countRows(schema.enrollments)}`);
   console.log(`  Course ratings: ${countRows(schema.courseRatings)}`);
   console.log(`  Lesson comments: ${countRows(schema.comments)}`);
+  console.log(
+    `  Bookmarks: ${countRows(schema.bookmarks)}, notes: ${countRows(schema.notes)}`
+  );
   console.log(
     `  Lesson progress: ${countRows(schema.lessonProgress)} (${countRows(schema.lessonProgress, eq(schema.lessonProgress.status, LessonProgressStatus.Completed))} completed)`
   );

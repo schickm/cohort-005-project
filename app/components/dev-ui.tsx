@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Form, useLocation } from "react-router";
 import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
@@ -43,6 +43,21 @@ function RoleBadge({ role }: { role: string }) {
 export function DevUI({ users, currentUser, devCountry, countryTierInfo, countries }: DevUIProps) {
   const [minimized, setMinimized] = useState(false);
   const [open, setOpen] = useState(false);
+  const switchUserRef = useRef<HTMLDivElement>(null);
+
+  // The DevUI stays mounted across navigations, so the menu must close
+  // itself: on a click outside it here, and on selecting a user below.
+  useEffect(() => {
+    if (!open) return;
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!switchUserRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () =>
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [open]);
   const location = useLocation();
   if (minimized) {
     return (
@@ -90,7 +105,7 @@ export function DevUI({ users, currentUser, devCountry, countryTierInfo, countri
           </div>
         )}
 
-        <div className="relative">
+        <div className="relative" ref={switchUserRef}>
           <Button
             size="sm"
             variant="outline"
@@ -113,6 +128,7 @@ export function DevUI({ users, currentUser, devCountry, countryTierInfo, countri
                   key={user.id}
                   method="post"
                   action={`/api/switch-user?redirectTo=${encodeURIComponent(location.pathname + location.search)}`}
+                  onSubmit={() => setOpen(false)}
                 >
                   <input type="hidden" name="userId" value={user.id} />
                   <button
